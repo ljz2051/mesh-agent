@@ -1,2 +1,2 @@
 # mesh-agent
-2018年中间件比赛初赛代码迁移至gitbub
+2018年阿里中间件比赛初赛代码由git code迁移至github
