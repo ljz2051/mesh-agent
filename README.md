@@ -1,14 +1,15 @@
 # mesh-agent
 2018年阿里中间件比赛初赛代码由阿里云code迁移至github
 
-初赛题目地址：https://tianchi.aliyun.com/competition/entrance/231657/information
-详细说明：https://code.aliyun.com/middlewarerace2018/docs  需要登陆阿里云code
+初赛题目地址：https://tianchi.aliyun.com/competition/entrance/231657/information    
+
+详细说明：https://code.aliyun.com/middlewarerace2018/docs   需要登陆阿里云code
 
 初赛解题思路：《Service Mesh Agent for Apache Dubbo (Incubating) 》
 
 ### （1）赛题解读
 赛题要求实现一个高性能的Agent，Agent必须具有服务注册与发现、负载均衡和协议转换的功能，并且要具有一定的通用性。赛题限定的系统架构如下所示：  
-![赛题系统架构图](/images/structure.png)  
+![赛题系统架构图](/images/structure.png)    
 首先，Provider Agent启动时会将Provider提供的服务注册到ETCD上。然后Consumer处发起http请求，Consumer Agent处拦截到Consumer的请求后，依赖服务名到ETCD上做服务发现，然后采用一定的负载均衡算法，将消息发送到provider侧。Provider侧由Provider Agent 接收消息，经过处理后，将消息转发到Provider，等候Provider响应。Provider响应完成后，由Provider Agent将响应消息回传到相应的Consumer侧。Consumer侧由Consumer Agent接收响应并处理后，回传到相应的Consumer。
 整个过程，Consumer侧的Agent需要完成的功能有：服务发现、负载均衡、消息传输和处理、协议转换，Provider侧的Agent需要完成的功能有：服务注册、协议转换、消息传输和处理。
 
@@ -16,11 +17,14 @@
 基本的解题思路如下图所示：  
 ![基本解题思路](/images/dataflow.png)  
 ①HttpServer: 基于netty实现的一个http服务器。它接收到consumer的http请求后，解析出http的body部分（Bytebuf形式），从Bytebuf形式的消息中解析出服务名后，到etcd上做服务发现，此处会缓存服务发现的结果。然后根据负载均衡策略（具体策略后面讲），将消息通过AgentClient转发。 当消息响应返回后，它也负责将返回相应的http Response。
+
 ②AgentClient：第一个作用是转发消息至Provider， 转发消息的格式为  
 ![消息格式](/images/filed.png)    
 其中message会透传HttpServer解析出的ByteBuf，减少内存拷贝的开销。
 第二个作用是回传Provider响应至HttpServer，其传递的消息格式和上述类似，不再赘述。
+
 ③AgentServer：第一个作用是接收consumer Agent发来的请求，解析出其中的服务名、方法名、参数类型和具体参数，将其转换成dubbo协议后，转发至DubboConnectManager。第二个作用是，接收DubboConnectManager返回的响应，并将其透传到Consumer一侧。
+
 ④DubboConnectManager:用于发送dubbo格式的消息至provider，以及接收Provider的响应，解析出结果部分后发送至AgentServer。
 
 ### （3）主要优化点
